@@ -1,0 +1,6 @@
+Dynamic Agentic System
+
+This is a test document for the document ingestion pipeline.
+
+The system will eventually support version-aware retrieval,
+embeddings, Pinecone, and grounded responses.

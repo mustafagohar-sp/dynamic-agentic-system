@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     environment: str = "development"
     database_url: str
+    pinecone_api_key: str
+    pinecone_index_name: str = "dynamic-agentic-system"
 
 
     model_config = SettingsConfigDict(
