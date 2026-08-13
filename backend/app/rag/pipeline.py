@@ -8,7 +8,7 @@ from app.models.document_chunk import DocumentChunk
 from app.models.kb_version import KBVersion, KBVersionStatus
 from app.rag.chunking import chunk_text
 from app.rag.embeddings import generate_embeddings
-from app.rag.ingestion import extract_text
+from app.rag.ingestion import extract_text , calculate_checksum
 from app.rag.vector_store import upsert_chunk
 
 
@@ -36,11 +36,9 @@ def ingest_document(
         document = Document(
             kb_version_id=version.id,
             filename=path.name,
-            content_type=None,
+            content_type=("application/pdf" if path.suffix.lower() == ".pdf" else "text/plain"),
             storage_path=str(path),
-            checksum=__import__("hashlib")
-            .sha256(text.encode("utf-8"))
-            .hexdigest(),
+            checksum=calculate_checksum(file_path),
         )
 
         db.add(document)
