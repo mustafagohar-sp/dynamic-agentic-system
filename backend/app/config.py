@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     pinecone_api_key: str
     pinecone_index_name: str = "dynamic-agentic-system"
 
+    openrouter_api_key : str
+    openrouter_model : str = "openai/gpt-4o-mini"
+    openrouter_base_url : str = "https://openrouter.ai/api/v1"
 
     model_config = SettingsConfigDict(
         env_file= BASE_DIR / ".env",
