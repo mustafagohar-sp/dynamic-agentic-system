@@ -79,7 +79,7 @@ def extract_text(file_path: str | Path) -> str:
             f"Could not extract text from file: {path}"
         ) from exc
 
-    text = text.strip()
+    text = text.replace("\x00", "").strip()
 
     if not text:
         raise DocumentIngestionError(

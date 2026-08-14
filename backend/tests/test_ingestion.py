@@ -16,6 +16,7 @@ def test_extract_text_from_txt(tmp_path):
 
     text = extract_text(file_path)
 
+    
     assert text == "Northbridge FC test document."
 
 
@@ -59,3 +60,15 @@ def test_calculate_checksum(tmp_path):
 
     assert len(checksum) == 64
     assert all(character in "0123456789abcdef" for character in checksum)
+
+def test_extract_text_removes_null_bytes(tmp_path):
+    file_path = tmp_path / "sample.txt"
+    file_path.write_text(
+        "Northbridge FC\x00 financial report.",
+        encoding="utf-8",
+    )
+
+    text = extract_text(file_path)
+
+    assert "\x00" not in text
+    assert text == "Northbridge FC financial report."
