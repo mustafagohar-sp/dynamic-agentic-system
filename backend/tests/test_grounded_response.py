@@ -3,15 +3,16 @@ from app.rag.grounded_response import GroundedResponseService
 
 
 class FakeLLMClient:
-    def __init__(self):
+    def __init__(self, response):
         self.messages = None
         self.temperature = None
+        self.response = response
 
     def generate(self, messages, temperature=0.0):
         self.messages = messages
         self.temperature = temperature
 
-        return "Northbridge FC generated £204.0 million in revenue."
+        return self.response
 
 
 def test_grounded_response_uses_context():
@@ -32,7 +33,9 @@ def test_grounded_response_uses_context():
         sources=[source],
     )
 
-    llm = FakeLLMClient()
+    llm = FakeLLMClient(
+        "Northbridge FC generated £204.0 million in revenue. [Source 1]"
+    )
     service = GroundedResponseService(llm)
 
     response = service.answer(
@@ -41,7 +44,7 @@ def test_grounded_response_uses_context():
     )
 
     assert response.answer == (
-        "Northbridge FC generated £204.0 million in revenue."
+        "Northbridge FC generated £204.0 million in revenue. [Source 1]"
     )
 
     assert response.sources == [source]
@@ -51,6 +54,7 @@ def test_grounded_response_uses_context():
 
     assert llm.messages[0]["role"] == "system"
     assert "source of truth" in llm.messages[0]["content"]
+    assert "[Source N]" in llm.messages[0]["content"]
 
     assert llm.messages[1]["role"] == "user"
     assert "£204.0 million" in llm.messages[1]["content"]
@@ -65,7 +69,10 @@ def test_grounded_response_handles_empty_context():
         sources=[],
     )
 
-    llm = FakeLLMClient()
+    llm = FakeLLMClient(
+        "The provided context does not contain enough information "
+        "to answer the question."
+    )
     service = GroundedResponseService(llm)
 
     response = service.answer(
@@ -74,7 +81,8 @@ def test_grounded_response_handles_empty_context():
     )
 
     assert response.answer == (
-        "Northbridge FC generated £204.0 million in revenue."
+        "The provided context does not contain enough information "
+        "to answer the question."
     )
 
     assert response.sources == []

@@ -22,6 +22,8 @@ Rules:
 - If the context does not contain enough information to answer the question,
   clearly say that the provided context does not contain enough information.
 - Give a concise, direct answer.
+- When a claim is supported by a provided source, cite it using its source
+  number in the format [Source N].
 """
 
 
