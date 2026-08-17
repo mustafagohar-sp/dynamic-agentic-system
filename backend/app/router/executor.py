@@ -3,10 +3,26 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.database.service import DatabaseService
+from app.llm.client import LLMClient
+from app.math.engine import MathEngine
 from app.rag.context import assemble_context
 from app.rag.grounded_response import GroundedResponseService
 from app.rag.retrieval import retrieve
 from app.router.router import RouteTarget, RoutingDecision
+from app.math.result import MathResultHandler
+
+MATH_EXTRACTION_SYSTEM_PROMPT = """You extract mathematical expressions
+from user questions.
+
+Return ONLY the mathematical expression that should be calculated.
+
+Examples:
+"What is 17 multiplied by 24?" -> 17 * 24
+"Calculate 100 divided by 4" -> 100 / 4
+"What is 15% of 200?" -> 200 * 0.15
+
+Do not include explanations or markdown.
+"""
 
 
 class QueryExecutor:
@@ -14,9 +30,15 @@ class QueryExecutor:
         self,
         grounded_response_service: GroundedResponseService,
         database_service: DatabaseService,
+        llm_client: LLMClient,
+        math_engine: MathEngine,
+        math_result_handler : MathResultHandler,
     ):
         self.grounded_response_service = grounded_response_service
         self.database_service = database_service
+        self.llm_client = llm_client
+        self.math_engine = math_engine
+        self.math_result_handler = math_result_handler
 
     def execute(
         self,
@@ -39,6 +61,9 @@ class QueryExecutor:
                 query=query,
                 decision=decision,
             )
+
+        if decision.target == RouteTarget.MATH:
+            return self._execute_math(query)
 
         raise ValueError(
             f"Unsupported route target: {decision.target}"
@@ -110,4 +135,26 @@ class QueryExecutor:
         raise ValueError(
             "Unsupported database query"
         )
-    
+
+    def _execute_math(
+        self,
+        query: str,
+    ):
+        messages = [
+            {
+                "role": "system",
+                "content": MATH_EXTRACTION_SYSTEM_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": query,
+            },
+        ]
+
+        expression = self.llm_client.generate(
+            messages=messages,
+            temperature=0.0,
+        ).strip()
+
+        math_result = self.math_engine.calculate(expression)
+        return self.math_result_handler.format(math_result)
