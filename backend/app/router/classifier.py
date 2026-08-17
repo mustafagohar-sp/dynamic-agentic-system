@@ -8,11 +8,13 @@ from app.llm.client import LLMClient
 class QueryRoute(str, Enum):
     RAG = "rag"
     DATABASE = "database"
+    MATH = "math"
 
 
 class QueryIntent(str, Enum):
     DOCUMENT_KNOWLEDGE = "document_knowledge"
     SYSTEM_METADATA = "system_metadata"
+    MATHEMATICAL_CALCULATION = "mathematical_calculation"
 
 
 @dataclass(frozen=True)
@@ -29,16 +31,19 @@ Routes:
 - rag: questions requiring information from the content of knowledge-base documents.
 - database: questions about knowledge-base structure, metadata, versions, documents,
   chunks, or system state.
+- math: questions requiring a mathematical calculation that can be solved from
+  the numbers and mathematical operations contained in the query.
 
 Intents:
 - document_knowledge: questions asking about information contained in documents.
 - system_metadata: questions asking about stored knowledge-base or document metadata.
+- mathematical_calculation: questions requiring arithmetic or mathematical computation.
 
 Return ONLY valid JSON in exactly this format:
 
 {
-  "route": "rag" or "database",
-  "intent": "document_knowledge" or "system_metadata"
+  "route": "rag" or "database" or "math",
+  "intent": "document_knowledge" or "system_metadata" or "mathematical_calculation"
 }
 
 Do not include explanations, markdown, or additional fields.

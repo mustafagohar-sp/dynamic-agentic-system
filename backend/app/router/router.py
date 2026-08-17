@@ -7,6 +7,7 @@ from app.router.classifier import QueryClassification, QueryRoute
 class RouteTarget(str, Enum):
     RAG = "rag"
     DATABASE = "database"
+    MATH = "math"
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,12 @@ class QueryRouter:
         if classification.route == QueryRoute.DATABASE:
             return RoutingDecision(
                 target=RouteTarget.DATABASE,
+                classification=classification,
+            )
+
+        if classification.route == QueryRoute.MATH:
+            return RoutingDecision(
+                target=RouteTarget.MATH,
                 classification=classification,
             )
 

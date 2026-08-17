@@ -6,6 +6,7 @@ from app.router.classifier import (
 from app.router.router import (
     QueryRouter,
     RouteTarget,
+    RoutingDecision,
 )
 
 
@@ -35,3 +36,16 @@ def test_router_routes_database_query():
 
     assert result.target == RouteTarget.DATABASE
     assert result.classification == classification
+
+def test_router_routes_math():
+    classification = QueryClassification(
+        route=QueryRoute.MATH,
+        intent=QueryIntent.MATHEMATICAL_CALCULATION,
+    )
+
+    decision = QueryRouter().route(classification)
+
+    assert decision == RoutingDecision(
+        target=RouteTarget.MATH,
+        classification=classification,
+    )

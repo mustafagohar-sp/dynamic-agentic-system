@@ -93,3 +93,22 @@ def test_classifier_rejects_invalid_classification():
         match="LLM returned an invalid query classification",
     ):
         classifier.classify("What was the revenue?")
+
+
+def test_classifier_returns_math_mathematical_calculation():
+    llm = FakeLLMClient(
+        '{"route": "math", "intent": "mathematical_calculation"}'
+    )
+
+    classifier = QueryClassifier(llm)
+
+    result = classifier.classify(
+        "What is 17 multiplied by 24?"
+    )
+
+    assert result == QueryClassification(
+        route=QueryRoute.MATH,
+        intent=QueryIntent.MATHEMATICAL_CALCULATION,
+    )
+
+    assert llm.temperature == 0.0
