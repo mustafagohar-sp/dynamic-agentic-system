@@ -56,6 +56,25 @@ def upsert_chunk(
         vectors=[vector],
     )
 
+
+def upsert_chunks(
+    vectors: list[dict],
+) -> None:
+    if not vectors:
+        return
+
+    index = get_index()
+
+    batch_size = 100
+
+    for i in range(0, len(vectors), batch_size):
+        batch = vectors[i:i + batch_size]
+
+        index.upsert(
+            vectors=batch,
+        )
+
+
 def delete_chunks(chunk_ids: list) -> None:
     if not chunk_ids:
         return
@@ -65,7 +84,8 @@ def delete_chunks(chunk_ids: list) -> None:
     index.delete(
         ids=[str(chunk_id) for chunk_id in chunk_ids],
     )
-    
+
+
 def search_similar(
     query: str,
     top_k: int = 5,

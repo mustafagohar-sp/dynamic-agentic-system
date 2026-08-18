@@ -79,7 +79,7 @@ class QueryExecutor:
             db=db,
             knowledge_base_id=knowledge_base_id,
             query=query,
-            top_k=5,
+            top_k=10,
         )
 
         context = assemble_context(results)
