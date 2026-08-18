@@ -9,7 +9,7 @@ from app.models.kb_version import KBVersion, KBVersionStatus
 from app.rag.chunking import chunk_text
 from app.rag.embeddings import generate_embeddings
 from app.rag.ingestion import calculate_checksum, extract_text
-from app.rag.vector_store import delete_chunks, upsert_chunk
+from app.rag.vector_store import delete_chunks, upsert_chunks
 
 
 def _ingest_document(
@@ -39,6 +39,7 @@ def _ingest_document(
     embeddings = generate_embeddings(chunks)
 
     uploaded_chunk_ids = []
+    vectors = []
 
     for index, (content, embedding) in enumerate(
         zip(chunks, embeddings)
@@ -52,16 +53,22 @@ def _ingest_document(
         db.add(chunk)
         db.flush()
 
-        upsert_chunk(
-            chunk_id=chunk.id,
-            content=content,
-            knowledge_base_id=version.knowledge_base_id,
-            version_id=version.id,
-            document_id=document.id,
-            embedding=embedding,
+        uploaded_chunk_ids.append(chunk.id)
+
+        vectors.append(
+            {
+                "id": str(chunk.id),
+                "values": embedding,
+                "metadata": {
+                    "knowledge_base_id": str(version.knowledge_base_id),
+                    "version_id": str(version.id),
+                    "document_id": str(document.id),
+                    "chunk_id": str(chunk.id),
+                },
+            }
         )
 
-        uploaded_chunk_ids.append(chunk.id)
+    upsert_chunks(vectors)
 
     return document, uploaded_chunk_ids
 
