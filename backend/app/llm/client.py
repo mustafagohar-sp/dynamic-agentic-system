@@ -4,12 +4,12 @@ from app.config import settings
 
 
 class LLMClient:
-    def __init__(self):
+    def __init__(self, model : str | None = None):
         self.client = OpenAI(
             api_key=settings.openrouter_api_key,
             base_url=settings.openrouter_base_url,
         )
-        self.model = settings.openrouter_model
+        self.model = model or settings.openrouter_model
 
     def generate(
         self,

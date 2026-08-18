@@ -1,16 +1,27 @@
+from app.personas.config import PersonaConfig
 from app.rag.context import AssembledContext, ContextSource
 from app.rag.grounded_response import GroundedResponseService
+from app.llm.service import LLMService
+from app.personas.registry import get_persona
 
-
-class FakeLLMClient:
+class FakeLLMService:
     def __init__(self, response):
-        self.messages = None
-        self.temperature = None
         self.response = response
+        self.calls = []
 
-    def generate(self, messages, temperature=0.0):
-        self.messages = messages
-        self.temperature = temperature
+    def generate(
+        self,
+        persona,
+        user_message,
+        system_prompt=None,
+    ):
+        self.calls.append(
+            {
+                "persona": persona,
+                "user_message": user_message,
+                "system_prompt": system_prompt,
+            }
+        )
 
         return self.response
 
@@ -20,7 +31,7 @@ def test_grounded_response_uses_context():
         source_number=1,
         filename="financial_report.pdf",
         chunk_index=3,
-        content="Northbridge FC generated £204.0 million in revenue.",
+        content="Northbridge FC generated Â£204.0 million in revenue.",
     )
 
     context = AssembledContext(
@@ -28,15 +39,26 @@ def test_grounded_response_uses_context():
             "[Source 1]\n"
             "Document: financial_report.pdf\n"
             "Chunk: 3\n\n"
-            "Northbridge FC generated £204.0 million in revenue.\n"
+            "Northbridge FC generated Â£204.0 millionin revenue.\n"
         ),
         sources=[source],
     )
 
-    llm = FakeLLMClient(
-        "Northbridge FC generated £204.0 million in revenue. [Source 1]"
+    llm_service = FakeLLMService(
+        "Northbridge FC generated Â£204.0 million in revenue. [Source 1]"
     )
-    service = GroundedResponseService(llm)
+
+    persona = PersonaConfig(
+        name="grounded_analyst",
+        system_prompt="Use only the provided context.",
+        temperature=0.0,
+        preferred_model="test-model",
+    )
+
+    service = GroundedResponseService(
+        llm_service=llm_service,
+        persona=persona,
+    )
 
     response = service.answer(
         question="What was Northbridge FC's revenue?",
@@ -44,23 +66,23 @@ def test_grounded_response_uses_context():
     )
 
     assert response.answer == (
-        "Northbridge FC generated £204.0 million in revenue. [Source 1]"
+        "Northbridge FC generated Â£204.0 million in revenue. [Source 1]"
     )
 
     assert response.sources == [source]
 
-    assert llm.temperature == 0.0
-    assert len(llm.messages) == 2
+    assert len(llm_service.calls) == 1
 
-    assert llm.messages[0]["role"] == "system"
-    assert "source of truth" in llm.messages[0]["content"]
-    assert "[Source N]" in llm.messages[0]["content"]
+    call = llm_service.calls[0]
 
-    assert llm.messages[1]["role"] == "user"
-    assert "£204.0 million" in llm.messages[1]["content"]
-    assert "What was Northbridge FC's revenue?" in (
-        llm.messages[1]["content"]
-    )
+    assert call["persona"] == persona
+
+    assert "Â£204.0 million" in call["user_message"]
+    assert "What was Northbridge FC's revenue?" in call["user_message"]
+
+    assert call["system_prompt"] is not None
+    assert "source of truth" in call["system_prompt"]
+    assert "[Source N]" in call["system_prompt"]
 
 
 def test_grounded_response_handles_empty_context():
@@ -69,11 +91,22 @@ def test_grounded_response_handles_empty_context():
         sources=[],
     )
 
-    llm = FakeLLMClient(
-        "The provided context does not contain enough information "
+    llm_service = FakeLLMService(
+        "The provided context does not contain enoughinformation "
         "to answer the question."
     )
-    service = GroundedResponseService(llm)
+
+    persona = PersonaConfig(
+        name="grounded_analyst",
+        system_prompt="Use only the provided context.",
+        temperature=0.0,
+        preferred_model="test-model",
+    )
+
+    service = GroundedResponseService(
+        llm_service=llm_service,
+        persona=persona,
+    )
 
     response = service.answer(
         question="What was Northbridge FC's revenue?",
@@ -81,8 +114,81 @@ def test_grounded_response_handles_empty_context():
     )
 
     assert response.answer == (
-        "The provided context does not contain enough information "
+        "The provided context does not contain enoughinformation "
         "to answer the question."
     )
 
     assert response.sources == []
+
+    assert len(llm_service.calls) == 1
+
+
+def test_grounded_response_uses_llm_service_with_grounded_persona(
+    monkeypatch,
+):
+    calls = []
+
+    class FakeLLMService:
+        def generate(
+            self,
+            persona,
+            user_message,
+            system_prompt=None,
+        ):
+            calls.append(
+                {
+                    "persona": persona,
+                    "user_message": user_message,
+                    "system_prompt": system_prompt,
+                }
+            )
+
+            return "Northbridge FC generated Â£204.0 million in revenue. [Source 1]"
+
+    source = ContextSource(
+        source_number=1,
+        filename="financial_report.pdf",
+        chunk_index=3,
+        content="Northbridge FC generated Â£204.0 million in revenue.",
+    )
+
+    context = AssembledContext(
+        text=(
+            "[Source 1]\n"
+            "Document: financial_report.pdf\n"
+            "Chunk: 3\n\n"
+            "Northbridge FC generated Â£204.0 million in revenue.\n"
+        ),
+        sources=[source],
+    )
+
+    persona = get_persona("grounded_analyst")
+
+    service = GroundedResponseService(
+        llm_service=FakeLLMService(),
+        persona=persona,
+    )
+
+    response = service.answer(
+        question="What was Northbridge FC's revenue?",
+        context=context,
+    )
+
+    assert response.answer == (
+        "Northbridge FC generated Â£204.0 million in revenue. [Source 1]"
+    )
+
+    assert response.sources == [source]
+
+    assert len(calls) == 1
+
+    assert calls[0]["persona"] == persona
+    assert calls[0]["persona"].name == "grounded_analyst"
+    assert calls[0]["persona"].temperature == 0.0
+
+    assert calls[0]["system_prompt"] is not None
+    assert "source of truth" in calls[0]["system_prompt"]
+    assert "[Source N]" in calls[0]["system_prompt"]
+
+    assert "Â£204.0 million" in calls[0]["user_message"]
+    assert "What was Northbridge FC's revenue?" in calls[0]["user_message"]

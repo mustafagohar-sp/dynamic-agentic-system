@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
-from app.llm.client import LLMClient
-from app.rag.context import AssembledContext , ContextSource
+from app.llm.service import LLMService
+from app.personas.config import PersonaConfig
+from app.rag.context import AssembledContext, ContextSource
 
 
 @dataclass(frozen=True)
@@ -28,8 +29,13 @@ Rules:
 
 
 class GroundedResponseService:
-    def __init__(self, llm_client: LLMClient):
-        self.llm_client = llm_client
+    def __init__(
+        self,
+        llm_service: LLMService,
+        persona: PersonaConfig,
+    ):
+        self.llm_service = llm_service
+        self.persona = persona
 
     def answer(
         self,
@@ -37,25 +43,17 @@ class GroundedResponseService:
         context: AssembledContext,
     ) -> GroundedResponse:
 
-        messages = [
-            {
-                "role": "system",
-                "content": GROUNDING_SYSTEM_PROMPT,
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Context:\n\n"
-                    f"{context.text}\n\n"
-                    f"Question:\n\n"
-                    f"{question}"
-                ),
-            },
-        ]
+        user_message = (
+            f"Context:\n\n"
+            f"{context.text}\n\n"
+            f"Question:\n\n"
+            f"{question}"
+        )
 
-        answer = self.llm_client.generate(
-            messages=messages,
-            temperature=0.0,
+        answer = self.llm_service.generate(
+            persona=self.persona,
+            user_message=user_message,
+            system_prompt=GROUNDING_SYSTEM_PROMPT,
         )
 
         return GroundedResponse(
