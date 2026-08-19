@@ -34,6 +34,7 @@ def upsert_chunk(
     knowledge_base_id,
     version_id,
     document_id,
+    persona: str = "general",
     embedding: list[float] | None = None,
 ) -> None:
     if embedding is None:
@@ -47,6 +48,7 @@ def upsert_chunk(
             "version_id": str(version_id),
             "document_id": str(document_id),
             "chunk_id": str(chunk_id),
+            "persona": persona,
         },
     }
 
@@ -90,6 +92,7 @@ def search_similar(
     query: str,
     top_k: int = 5,
     version_id=None,
+    persona: str | None = None,
 ):
     if not query.strip():
         raise ValueError("Query cannot be empty")
@@ -104,9 +107,15 @@ def search_similar(
         "include_metadata": True,
     }
 
+    filters = {}
+
     if version_id is not None:
-        query_kwargs["filter"] = {
-            "version_id": str(version_id),
-        }
+        filters["version_id"] = str(version_id)
+
+    if persona is not None:
+        filters["persona"] = persona
+
+    if filters:
+        query_kwargs["filter"] = filters
 
     return index.query(**query_kwargs)

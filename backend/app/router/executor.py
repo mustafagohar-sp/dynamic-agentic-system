@@ -10,6 +10,9 @@ from app.rag.grounded_response import GroundedResponseService
 from app.rag.retrieval import retrieve
 from app.router.router import RouteTarget, RoutingDecision
 from app.math.result import MathResultHandler
+from app.personas.scope_checker import PersonaScopeChecker
+from app.personas.registry import get_persona
+
 
 MATH_EXTRACTION_SYSTEM_PROMPT = """You extract mathematical expressions
 from user questions.
@@ -32,13 +35,14 @@ class QueryExecutor:
         database_service: DatabaseService,
         llm_client: LLMClient,
         math_engine: MathEngine,
-        math_result_handler : MathResultHandler,
+        math_result_handler: MathResultHandler,
     ):
         self.grounded_response_service = grounded_response_service
         self.database_service = database_service
         self.llm_client = llm_client
         self.math_engine = math_engine
         self.math_result_handler = math_result_handler
+        self.scope_checker = PersonaScopeChecker(llm_client=llm_client)
 
     def execute(
         self,
@@ -46,12 +50,14 @@ class QueryExecutor:
         knowledge_base_id: UUID,
         query: str,
         decision: RoutingDecision,
+        persona: str,
     ):
         if decision.target == RouteTarget.RAG:
             return self._execute_rag(
                 db=db,
                 knowledge_base_id=knowledge_base_id,
                 query=query,
+                persona=persona,
             )
 
         if decision.target == RouteTarget.DATABASE:
@@ -74,13 +80,30 @@ class QueryExecutor:
         db: Session,
         knowledge_base_id: UUID,
         query: str,
+        persona: str,
     ):
+        persona_config = get_persona(persona)
+
+        scope_result = self.scope_checker.check(
+            query=query,
+            persona=persona_config,
+        )
+
+        if not scope_result.allowed:
+            return scope_result
+
         results = retrieve(
             db=db,
             knowledge_base_id=knowledge_base_id,
             query=query,
             top_k=10,
+            persona=persona,
         )
+
+        if not results:
+            return self.scope_checker.out_of_scope_response(
+                persona=persona,
+            )
 
         context = assemble_context(results)
 
@@ -157,4 +180,7 @@ class QueryExecutor:
         ).strip()
 
         math_result = self.math_engine.calculate(expression)
-        return self.math_result_handler.format(math_result)
+
+        return self.math_result_handler.format(
+            math_result
+        )
