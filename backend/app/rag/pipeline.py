@@ -16,6 +16,7 @@ def _ingest_document(
     db: Session,
     version: KBVersion,
     file_path: str,
+    persona: str,
 ) -> tuple[Document, list[UUID]]:
     path = Path(file_path)
     text = extract_text(file_path)
@@ -64,6 +65,7 @@ def _ingest_document(
                     "version_id": str(version.id),
                     "document_id": str(document.id),
                     "chunk_id": str(chunk.id),
+                    "persona": persona,
                 },
             }
         )
@@ -77,6 +79,7 @@ def ingest_document(
     db: Session,
     version_id: UUID,
     file_path: str,
+    persona: str = "general",
 ) -> Document:
     version = db.get(KBVersion, version_id)
 
@@ -97,6 +100,7 @@ def ingest_document(
             db=db,
             version=version,
             file_path=file_path,
+            persona=persona,
         )
 
         version.status = KBVersionStatus.READY
@@ -125,6 +129,7 @@ def ingest_documents(
     db: Session,
     version_id: UUID,
     file_paths: list[str],
+    persona: str = "general",
 ) -> list[Document]:
     version = db.get(KBVersion, version_id)
 
@@ -150,6 +155,7 @@ def ingest_documents(
                 db=db,
                 version=version,
                 file_path=file_path,
+                persona=persona,
             )
 
             documents.append(document)

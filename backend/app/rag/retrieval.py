@@ -9,6 +9,29 @@ from app.models.knowledge_base import KnowledgeBase
 from app.rag.vector_store import search_similar
 
 
+PERSONA_DOCUMENTS = {
+    "financial": [
+        "Northbridge_FC_Annual_Financial_Report_2024_25.pdf",
+        "Northbridge_FC_Commercial_Performance_Report_2024_25.pdf",
+        "Northbridge_FC_Transfer_and_Wage_Report_2024_25.pdf",
+    ],
+    "legal": [
+        "Northbridge_FC_Contracts_Commercial_Agreements_Register_2024_25.pdf",
+        "Northbridge_FC_Football_Operations_Player_Legal_Report_2024_25.pdf",
+        "Northbridge_FC_Governance_Safeguarding_Data_Protection_Report_2024_25.pdf",
+        "Northbridge_FC_Legal_Regulatory_Compliance_Report_2024_25.pdf",
+    ],
+    "general": [
+        "Northbridge_FC_Stadium_Infrastructure_Investment_Report_2024_25.pdf",
+        "Northbridge_FC_Club_Operations_Organizational_Report_2024_25.pdf",
+        "Northbridge_FC_Commercial_Supporter_Community_Operations_Report_2024_25.pdf",
+        "Northbridge_FC_Football_Operations_Performance_Report_2024_25.pdf",
+        "Northbridge_FC_Matchday_Stadium_Operations_Report_2024_25.pdf",
+        "northbridge_v2_update.txt",
+    ],
+}
+
+
 @dataclass(frozen=True)
 class RetrievalResult:
     chunk_id: UUID
@@ -23,7 +46,14 @@ def retrieve_chunks(
     knowledge_base_id: UUID,
     query: str,
     top_k: int = 5,
+    persona: str = "general",
 ) -> list[DocumentChunk]:
+
+    if persona not in PERSONA_DOCUMENTS:
+        raise ValueError(
+            f"Unknown persona: {persona}"
+        )
+
     knowledge_base = db.get(
         KnowledgeBase,
         knowledge_base_id,
@@ -33,7 +63,9 @@ def retrieve_chunks(
         raise ValueError("Knowledge base not found")
 
     if knowledge_base.active_version_id is None:
-        raise ValueError("Knowledge base has no active version")
+        raise ValueError(
+            "Knowledge base has no active version"
+        )
 
     active_version_id = knowledge_base.active_version_id
 
@@ -65,6 +97,9 @@ def retrieve_chunks(
         .filter(
             DocumentChunk.id.in_(valid_chunk_ids),
             Document.kb_version_id == active_version_id,
+            Document.filename.in_(
+                PERSONA_DOCUMENTS[persona]
+            ),
         )
         .all()
     )
@@ -86,19 +121,15 @@ def retrieve(
     knowledge_base_id: UUID,
     query: str,
     top_k: int = 5,
+    persona: str = "general",
 ) -> list[RetrievalResult]:
-    """
-    Application-facing retrieval service.
-
-    Uses the existing version-aware retrieval implementation
-    and enriches the retrieved chunks with document metadata.
-    """
 
     chunks = retrieve_chunks(
         db=db,
         knowledge_base_id=knowledge_base_id,
         query=query,
         top_k=top_k,
+        persona=persona,
     )
 
     if not chunks:
@@ -111,7 +142,9 @@ def retrieve(
 
     documents = (
         db.query(Document)
-        .filter(Document.id.in_(document_ids))
+        .filter(
+            Document.id.in_(document_ids)
+        )
         .all()
     )
 
